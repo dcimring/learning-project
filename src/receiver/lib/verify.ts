@@ -11,9 +11,9 @@ import {
   WEBHOOK_ID_HEADER,
   WEBHOOK_SIGNATURE_HEADER,
   WEBHOOK_TIMESTAMP_HEADER,
-} from "../shared/signing.js";
-import { systemClock, type Clock } from "../shared/clock.js";
-import type { Event } from "../shared/event.js";
+} from "../../shared/signing.js";
+import { systemClock, type Clock } from "../../shared/clock.js";
+import type { Event } from "../../shared/event.js";
 
 /** How far `webhook-timestamp` may be from the Receiver's clock, either way. */
 const TOLERANCE_SECONDS = 5 * 60;
