@@ -1,5 +1,9 @@
 # learning-project
 
+## Workflow
+
+Tickets are built one per session, test-first, with a PR per ticket. See `docs/agents/workflow.md`.
+
 ## Agent skills
 
 ### Issue tracker
