@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   InvalidSignatureError,
   MalformedHeadersError,
+  MalformedPayloadError,
   StaleTimestampError,
   verify,
   type Event,
@@ -28,6 +29,19 @@ function thrownBy(fn: () => unknown): unknown {
     return error;
   }
   throw new Error("expected the call to throw");
+}
+
+/** Signs with node:crypto directly, independently of the package. */
+function signedHeaders(input: { id: string; timestamp: number; body: string; secret: string }) {
+  const key = Buffer.from(input.secret.slice("whsec_".length), "base64");
+  const signature = createHmac("sha256", key)
+    .update(`${input.id}.${input.timestamp}.${input.body}`)
+    .digest("base64");
+  return {
+    "webhook-id": input.id,
+    "webhook-timestamp": String(input.timestamp),
+    "webhook-signature": `v1,${signature}`,
+  };
 }
 
 const vectorHeaders = () => ({
@@ -62,6 +76,25 @@ describe("verify: signatures", () => {
 
     expect(error).toBeInstanceOf(InvalidSignatureError);
     expect(error).toBeInstanceOf(WebhookVerificationError);
+  });
+
+  // Negative cases from the reference libraries' suites.
+  it.each([
+    ["a garbage signature", "v1,dawfeoifkpqwoekfpqoekf"],
+    ["a truncated signature", vector.signature.slice(0, 8)],
+    ["an empty signature", "v1,"],
+    ["the right signature under an unknown version", vector.signature.replace("v1,", "v2,")],
+  ])("rejects %s", (_, signature) => {
+    const error = thrownBy(() =>
+      verify({
+        headers: { ...vectorHeaders(), "webhook-signature": signature },
+        rawBody: vector.body,
+        secrets: [vector.secret],
+        clock: atSeconds(vector.timestamp),
+      }),
+    );
+
+    expect(error).toBeInstanceOf(InvalidSignatureError);
   });
 
   it("passes when any signature in the header matches any Signing secret", () => {
@@ -128,7 +161,7 @@ describe("verify: malformed headers", () => {
     },
   );
 
-  it.each(["hello", "", "1614265330.5", "1e9"])(
+  it.each(["hello", "", "1614265330.5", "1e9", "01614265330"])(
     "rejects a webhook-timestamp of %j",
     (timestamp) => {
       const error = thrownBy(() =>
@@ -178,7 +211,6 @@ describe("verify: header input", () => {
 
 describe("verify: the Event envelope", () => {
   it("returns the parsed { type, timestamp, data } envelope", () => {
-    // Signed directly with node:crypto, independently of the package.
     const id = "evt_01JABCDEF";
     const timestamp = 1700000000;
     const body = JSON.stringify({
@@ -186,15 +218,9 @@ describe("verify: the Event envelope", () => {
       timestamp: "2023-11-14T22:13:20.000Z",
       data: { invoiceId: "inv_42", amount: 1999 },
     });
-    const key = Buffer.from(vector.secret.slice("whsec_".length), "base64");
-    const signature = createHmac("sha256", key).update(`${id}.${timestamp}.${body}`).digest("base64");
 
     const event = verify<{ invoiceId: string; amount: number }>({
-      headers: {
-        "webhook-id": id,
-        "webhook-timestamp": String(timestamp),
-        "webhook-signature": `v1,${signature}`,
-      },
+      headers: signedHeaders({ id, timestamp, body, secret: vector.secret }),
       rawBody: new TextEncoder().encode(body),
       secrets: [vector.secret],
       clock: atSeconds(timestamp),
@@ -207,13 +233,31 @@ describe("verify: the Event envelope", () => {
     });
     expectTypeOf(event).toEqualTypeOf<Event<{ invoiceId: string; amount: number }>>();
   });
+
+  it("rejects a correctly signed body that isn't JSON", () => {
+    const body = "not json";
+    const timestamp = 1700000000;
+
+    const error = thrownBy(() =>
+      verify({
+        headers: signedHeaders({ id: "evt_01JABCDEF", timestamp, body, secret: vector.secret }),
+        rawBody: body,
+        secrets: [vector.secret],
+        clock: atSeconds(timestamp),
+      }),
+    );
+
+    expect(error).toBeInstanceOf(MalformedPayloadError);
+    expect(error).toBeInstanceOf(WebhookVerificationError);
+  });
 });
 
 describe("verify: Signing secret configuration", () => {
   it.each([
     ["an empty list of secrets", []],
-    ["a secret without the whsec_ prefix", ["MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"]],
     ["an empty whsec_ secret", ["whsec_"]],
+    ["an empty secret", [""]],
+    ["a secret that isn't base64", ["whsec_MfKQ9r8GKYqrTwjUPD8I*PZIo2LaLaSw"]],
   ])("throws a TypeError, not a verification error, for %s", (_, secrets) => {
     const error = thrownBy(() =>
       verify({
@@ -226,5 +270,16 @@ describe("verify: Signing secret configuration", () => {
 
     expect(error).toBeInstanceOf(TypeError);
     expect(error).not.toBeInstanceOf(WebhookVerificationError);
+  });
+
+  it("accepts a raw base64 secret without the whsec_ prefix", () => {
+    const result = verify({
+      headers: vectorHeaders(),
+      rawBody: vector.body,
+      secrets: ["MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"],
+      clock: atSeconds(vector.timestamp),
+    });
+
+    expect(result).toEqual({ test: 2432232314 });
   });
 });

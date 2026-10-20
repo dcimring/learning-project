@@ -1,4 +1,9 @@
-import { InvalidSignatureError, MalformedHeadersError, StaleTimestampError } from "./errors.js";
+import {
+  InvalidSignatureError,
+  MalformedHeadersError,
+  MalformedPayloadError,
+  StaleTimestampError,
+} from "./errors.js";
 import {
   decodeSecret,
   parseTimestamp,
@@ -40,16 +45,22 @@ export function verify<TData = unknown>(input: VerifyInput): Event<TData> {
   if (timestamp === undefined) {
     throw new MalformedHeadersError(`${WEBHOOK_TIMESTAMP_HEADER} is not an integer of seconds`);
   }
-  const header = requireHeader(input.headers, WEBHOOK_SIGNATURE_HEADER);
+  const signatureHeader = requireHeader(input.headers, WEBHOOK_SIGNATURE_HEADER);
 
   const nowSeconds = Math.floor((input.clock ?? systemClock).now().getTime() / 1000);
   if (Math.abs(nowSeconds - timestamp) > TOLERANCE_SECONDS) {
-    throw new StaleTimestampError("Timestamp is outside the 5 minute tolerance");
+    throw new StaleTimestampError(
+      `${WEBHOOK_TIMESTAMP_HEADER} is more than ${TOLERANCE_SECONDS}s from the current time`,
+    );
   }
-  if (!signatureMatches(header, keys, { id, timestamp, body: input.rawBody })) {
+  if (!signatureMatches(signatureHeader, keys, { id, timestamp, body: input.rawBody })) {
     throw new InvalidSignatureError("No signature matches any Signing secret");
   }
-  return JSON.parse(Buffer.from(input.rawBody).toString("utf8")) as Event<TData>;
+  try {
+    return JSON.parse(Buffer.from(input.rawBody).toString("utf8")) as Event<TData>;
+  } catch {
+    throw new MalformedPayloadError("Body is not JSON");
+  }
 }
 
 function requireHeader(headers: WebhookHeaders, name: string): string {

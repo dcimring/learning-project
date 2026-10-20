@@ -4,6 +4,7 @@ export type { Event } from "../shared/event.js";
 export {
   InvalidSignatureError,
   MalformedHeadersError,
+  MalformedPayloadError,
   StaleTimestampError,
   WebhookVerificationError,
 } from "./errors.js";

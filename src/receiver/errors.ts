@@ -17,3 +17,8 @@ export class StaleTimestampError extends WebhookVerificationError {
 export class MalformedHeadersError extends WebhookVerificationError {
   override name = "MalformedHeadersError";
 }
+
+/** The body is correctly signed but isn't JSON. */
+export class MalformedPayloadError extends WebhookVerificationError {
+  override name = "MalformedPayloadError";
+}

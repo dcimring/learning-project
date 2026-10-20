@@ -17,27 +17,31 @@ export interface SignedContent {
   body: string | Uint8Array;
 }
 
-/** Parses `webhook-timestamp` (integer Unix seconds); undefined if malformed. */
+/**
+ * Parses `webhook-timestamp` (integer Unix seconds); undefined if malformed.
+ * Leading zeros are rejected so the number signed is the header as sent.
+ */
 export function parseTimestamp(value: string): number | undefined {
-  return /^\d+$/.test(value) ? Number(value) : undefined;
+  return /^(0|[1-9]\d*)$/.test(value) ? Number(value) : undefined;
 }
 
 /** A Signing secret decoded from its `whsec_<base64>` form into HMAC key bytes. */
 export type SigningKey = Buffer & { readonly __brand: "SigningKey" };
 
-/** Decodes a `whsec_` Signing secret. Throws a TypeError if it isn't one. */
+/**
+ * Decodes a Signing secret, `whsec_<base64>` or bare base64 as some Standard
+ * Webhooks Senders issue it. Throws a TypeError if it isn't non-empty base64.
+ */
 export function decodeSecret(secret: string): SigningKey {
-  const encoded = secret.startsWith(SECRET_PREFIX) ? secret.slice(SECRET_PREFIX.length) : "";
+  const encoded = secret.startsWith(SECRET_PREFIX) ? secret.slice(SECRET_PREFIX.length) : secret;
   const key = Buffer.from(encoded, "base64");
-  if (key.length === 0) {
-    throw new TypeError("Signing secrets must be in the form whsec_<base64>");
+  // Node's decoder skips characters it doesn't recognise, so a typo would
+  // silently yield a different key; round-tripping catches that.
+  const unpadded = (base64: string) => base64.replace(/=+$/, "");
+  if (key.length === 0 || unpadded(key.toString("base64")) !== unpadded(encoded)) {
+    throw new TypeError("Signing secrets must be base64, optionally prefixed with whsec_");
   }
   return key as SigningKey;
-}
-
-/** Signs one Attempt: HMAC-SHA256 over `id.timestamp.body`, as `v1,<base64>`. */
-export function sign(key: SigningKey, content: SignedContent): string {
-  return `${SIGNATURE_VERSION},${hmac(key, content).toString("base64")}`;
 }
 
 /**
