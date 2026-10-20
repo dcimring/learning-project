@@ -1,7 +1,7 @@
 // The Standard Webhooks wire format (ADR-0001). This module is the only place
 // the header names, the signed content and the signature encoding are defined;
 // the Sender and the Receiver both go through it.
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 export const WEBHOOK_ID_HEADER = "webhook-id";
 export const WEBHOOK_TIMESTAMP_HEADER = "webhook-timestamp";
@@ -49,6 +49,30 @@ export function decodeSecret(secret: string): SigningKey {
     );
   }
   return key as SigningKey;
+}
+
+/** A fresh Signing secret: 32 random bytes as `whsec_<base64>`. */
+export function generateSecret(): string {
+  return `${SECRET_PREFIX}${randomBytes(32).toString("base64")}`;
+}
+
+/**
+ * The `webhook-*` headers for one Attempt: one `v1` signature per key, so a
+ * rotating Endpoint is signed with both its current and previous secret.
+ */
+export function signedHeaders(
+  keys: readonly SigningKey[],
+  content: SignedContent
+): Record<string, string> {
+  return {
+    [WEBHOOK_ID_HEADER]: content.id,
+    [WEBHOOK_TIMESTAMP_HEADER]: String(content.timestamp),
+    [WEBHOOK_SIGNATURE_HEADER]: keys
+      .map(
+        (key) => `${SIGNATURE_VERSION},${hmac(key, content).toString("base64")}`
+      )
+      .join(" "),
+  };
 }
 
 /**

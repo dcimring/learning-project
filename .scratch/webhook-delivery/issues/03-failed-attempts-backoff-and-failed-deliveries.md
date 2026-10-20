@@ -13,3 +13,10 @@
 - [ ] A Delivery due in the future is not attempted by `runDue`
 - [ ] After the eighth failed Attempt the Delivery is Failed and is never attempted again automatically
 - [ ] Every retry Attempt is freshly signed with its own timestamp and keeps the same `webhook-id`
+
+## Comments
+
+From ticket 02's code review:
+
+- `attempt()` in `src/sender/lib/sender.ts` already records a non-2xx/timeout/network result as an Attempt and leaves the Delivery `pending` with an unchanged `nextAttemptAt`, so it is retried on every `runDue` and never becomes Failed. This ticket replaces that with the backoff schedule; the branch is untested today.
+- A Transport that throws (rather than returning a result) rejects `runDue`'s `Promise.all`, losing that Attempt and the others' results. Decide whether `attempt` catches it and records a `network` outcome.
