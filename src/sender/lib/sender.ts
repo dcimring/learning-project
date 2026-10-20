@@ -5,9 +5,12 @@ import {
   generateSecret,
   signedHeaders,
 } from "../../shared/signing.js";
+import { assertEndpointUrl } from "./endpoint-url.js";
+import { PayloadTooLargeError } from "./errors.js";
 import { newId } from "./ids.js";
 import type {
   AttemptOutcome,
+  DeliveryFilter,
   DeliveryRecord,
   DeliveryStatus,
   DueDelivery,
@@ -15,6 +18,9 @@ import type {
   Store,
 } from "./store.js";
 import type { Transport } from "./transport.js";
+
+/** The largest serialised envelope `send` accepts, in bytes. */
+const MAX_PAYLOAD_BYTES = 256 * 1024;
 
 export interface SenderOptions {
   store: Store;
@@ -50,11 +56,20 @@ export interface Attempt {
 
 export interface Sender {
   createEndpoint(input: { url: string; eventTypes: string[] }): Endpoint;
+  /**
+   * Changes an Endpoint's URL and/or Subscriptions. New Subscriptions apply to
+   * Events accepted afterwards; a new URL applies from the next Attempt.
+   */
+  updateEndpoint(
+    id: string,
+    changes: { url?: string; eventTypes?: string[] }
+  ): Endpoint;
   /** Accepts an Event and returns its id. */
   send(input: { type: string; data: unknown }): string;
   /** Makes an Attempt for every Delivery due at the clock's current time. */
   runDue(): Promise<void>;
-  listDeliveries(): Delivery[];
+  /** Deliveries with their Attempts, optionally by Endpoint and/or status. */
+  listDeliveries(filter?: DeliveryFilter): Delivery[];
 }
 
 export function createSender(options: SenderOptions): Sender {
@@ -99,6 +114,7 @@ export function createSender(options: SenderOptions): Sender {
 
   return {
     createEndpoint({ url, eventTypes }) {
+      assertEndpointUrl(url);
       const now = clock.now();
       const endpoint: EndpointRecord = {
         id: newId("ep"),
@@ -109,12 +125,23 @@ export function createSender(options: SenderOptions): Sender {
         updatedAt: now,
       };
       store.insertEndpoint(endpoint);
-      return {
-        id: endpoint.id,
-        url: endpoint.url,
-        secret: endpoint.secret,
-        eventTypes: [...endpoint.eventTypes],
+      return toEndpoint(endpoint);
+    },
+
+    updateEndpoint(id, changes) {
+      const existing = store.getEndpoint(id);
+      if (!existing) throw new Error(`No Endpoint with id ${id}`);
+      if (changes.url !== undefined) assertEndpointUrl(changes.url);
+      const endpoint: EndpointRecord = {
+        ...existing,
+        url: changes.url ?? existing.url,
+        eventTypes: changes.eventTypes
+          ? [...changes.eventTypes]
+          : existing.eventTypes,
+        updatedAt: clock.now(),
       };
+      store.updateEndpoint(endpoint);
+      return toEndpoint(endpoint);
     },
 
     send({ type, data }) {
@@ -124,12 +151,14 @@ export function createSender(options: SenderOptions): Sender {
         timestamp: acceptedAt.toISOString(),
         data,
       };
-      const event = {
-        id: newId("evt"),
-        type,
-        body: JSON.stringify(envelope),
-        acceptedAt,
-      };
+      const body = JSON.stringify(envelope);
+      const size = Buffer.byteLength(body);
+      if (size > MAX_PAYLOAD_BYTES) {
+        throw new PayloadTooLargeError(
+          `Event envelope is ${size} bytes; the limit is ${MAX_PAYLOAD_BYTES}`
+        );
+      }
+      const event = { id: newId("evt"), type, body, acceptedAt };
       const deliveries: DeliveryRecord[] = store
         .endpointsSubscribedTo(type)
         .map((endpoint) => ({
@@ -148,8 +177,8 @@ export function createSender(options: SenderOptions): Sender {
       await Promise.all(store.dueDeliveries(clock.now()).map(attempt));
     },
 
-    listDeliveries() {
-      return store.listDeliveries().map((delivery) => ({
+    listDeliveries(filter = {}) {
+      return store.listDeliveries(filter).map((delivery) => ({
         id: delivery.id,
         eventId: delivery.eventId,
         endpointId: delivery.endpointId,
@@ -164,5 +193,14 @@ export function createSender(options: SenderOptions): Sender {
         ),
       }));
     },
+  };
+}
+
+function toEndpoint(record: EndpointRecord): Endpoint {
+  return {
+    id: record.id,
+    url: record.url,
+    secret: record.secret,
+    eventTypes: [...record.eventTypes],
   };
 }

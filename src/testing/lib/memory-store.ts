@@ -21,6 +21,15 @@ export function createInMemoryStore(): Store {
       endpoints.set(endpoint.id, structuredClone(endpoint));
     },
 
+    getEndpoint(id) {
+      const endpoint = endpoints.get(id);
+      return endpoint && structuredClone(endpoint);
+    },
+
+    updateEndpoint(endpoint) {
+      endpoints.set(endpoint.id, structuredClone(endpoint));
+    },
+
     endpointsSubscribedTo(eventType) {
       return [...endpoints.values()]
         .filter((endpoint) => endpoint.eventTypes.includes(eventType))
@@ -54,13 +63,20 @@ export function createInMemoryStore(): Store {
       deliveries.set(delivery.id, structuredClone(delivery));
     },
 
-    listDeliveries() {
-      return [...deliveries.values()].map((delivery) => ({
-        ...structuredClone(delivery),
-        attempts: attempts
-          .filter((attempt) => attempt.deliveryId === delivery.id)
-          .map((attempt) => structuredClone(attempt)),
-      }));
+    listDeliveries(filter) {
+      return [...deliveries.values()]
+        .filter(
+          (delivery) =>
+            (filter.endpointId === undefined ||
+              delivery.endpointId === filter.endpointId) &&
+            (filter.status === undefined || delivery.status === filter.status)
+        )
+        .map((delivery) => ({
+          ...structuredClone(delivery),
+          attempts: attempts
+            .filter((attempt) => attempt.deliveryId === delivery.id)
+            .map((attempt) => structuredClone(attempt)),
+        }));
     },
   };
 }

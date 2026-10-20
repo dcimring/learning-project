@@ -6,9 +6,11 @@ export {
   type Sender,
   type SenderOptions,
 } from "./lib/sender.js";
+export { InvalidEndpointUrlError, PayloadTooLargeError } from "./lib/errors.js";
 export type {
   AttemptOutcome,
   AttemptRecord,
+  DeliveryFilter,
   DeliveryRecord,
   DeliveryStatus,
   DeliveryWithAttempts,

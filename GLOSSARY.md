@@ -23,7 +23,7 @@ The dotted name classifying an Event, such as `invoice.paid`, used to decide whi
 _Avoid_: Topic, channel, kind
 
 **Endpoint**:
-A subscriber's URL together with its Signing secret and the Event types it subscribes to.
+A subscriber's URL together with its Signing secret and the Event types it subscribes to. Its URL is read at each Attempt, so changing it redirects pending Deliveries; its Subscriptions are read only when an Event is accepted.
 _Avoid_: Subscriber URL, target, destination, webhook
 
 **Signing secret**:
