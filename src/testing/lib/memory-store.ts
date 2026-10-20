@@ -48,8 +48,8 @@ export function createInMemoryStore(): Store {
         .filter(
           (delivery) =>
             delivery.status === "pending" &&
-            delivery.nextDueAt !== null &&
-            delivery.nextDueAt <= now
+            delivery.nextAttemptAt !== null &&
+            delivery.nextAttemptAt <= now
         )
         .map((delivery) => ({
           delivery: structuredClone(delivery),

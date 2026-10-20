@@ -28,7 +28,7 @@ export interface DeliveryRecord {
   status: DeliveryStatus;
   attemptCount: number;
   /** When the next Attempt is due; null once the Delivery is finished. */
-  nextDueAt: Date | null;
+  nextAttemptAt: Date | null;
 }
 
 export type AttemptOutcome =

@@ -7,3 +7,8 @@ export class InvalidEndpointUrlError extends Error {
 export class PayloadTooLargeError extends Error {
   override name = "PayloadTooLargeError";
 }
+
+/** No Endpoint exists with the given id. */
+export class EndpointNotFoundError extends Error {
+  override name = "EndpointNotFoundError";
+}

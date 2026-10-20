@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { verify } from "webhook-delivery/receiver";
 import {
   createSender,
+  EndpointNotFoundError,
   InvalidEndpointUrlError,
   PayloadTooLargeError,
 } from "webhook-delivery/sender";
@@ -157,6 +158,19 @@ describe("Sender: updating an Endpoint", () => {
     ).toEqual([before, after].sort());
   });
 
+  it("rejects an unknown Endpoint id", () => {
+    const { sender } = setup();
+
+    let error: unknown;
+    try {
+      sender.updateEndpoint("ep_missing", { url: "https://a.example" });
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(error).toBeInstanceOf(EndpointNotFoundError);
+  });
+
   it("sends the next Attempt of an earlier Event to the new URL", async () => {
     const { transport, sender } = setup();
     const endpoint = sender.createEndpoint({
@@ -221,6 +235,19 @@ describe("Sender: accepting an Event's payload", () => {
     return ctx;
   };
 
+  it("sends null data when the payload's data is undefined", async () => {
+    const { transport, sender } = subscribed();
+
+    sender.send({ type: "report.ready", data: undefined });
+    await sender.runDue();
+
+    expect(JSON.parse(transport.requests[0]!.body)).toEqual({
+      type: "report.ready",
+      timestamp: "2026-01-01T00:00:00.000Z",
+      data: null,
+    });
+  });
+
   it("freezes the payload when the Event is accepted", async () => {
     const { transport, sender } = subscribed();
     const data = { lines: ["first"] };
@@ -234,12 +261,9 @@ describe("Sender: accepting an Event's payload", () => {
     });
   });
 
-  // The envelope around a string `data` for this type and clock time.
-  const envelopeOverhead = JSON.stringify({
-    type: "report.ready",
-    timestamp: "2026-01-01T00:00:00.000Z",
-    data: "",
-  }).length;
+  // The envelope around an empty string `data` for this type and clock time:
+  // {"type":"report.ready","timestamp":"2026-01-01T00:00:00.000Z","data":""}
+  const envelopeOverhead = 72;
   const limit = 256 * 1024;
 
   it("accepts an envelope of exactly 256 KB", () => {

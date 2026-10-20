@@ -6,7 +6,7 @@ import {
   signedHeaders,
 } from "../../shared/signing.js";
 import { assertEndpointUrl } from "./endpoint-url.js";
-import { PayloadTooLargeError } from "./errors.js";
+import { EndpointNotFoundError, PayloadTooLargeError } from "./errors.js";
 import { newId } from "./ids.js";
 import type {
   AttemptOutcome,
@@ -107,7 +107,7 @@ export function createSender(options: SenderOptions): Sender {
         ...delivery,
         status: succeeded ? "succeeded" : delivery.status,
         attemptCount: delivery.attemptCount + 1,
-        nextDueAt: succeeded ? null : delivery.nextDueAt,
+        nextAttemptAt: succeeded ? null : delivery.nextAttemptAt,
       }
     );
   }
@@ -130,7 +130,8 @@ export function createSender(options: SenderOptions): Sender {
 
     updateEndpoint(id, changes) {
       const existing = store.getEndpoint(id);
-      if (!existing) throw new Error(`No Endpoint with id ${id}`);
+      if (!existing)
+        throw new EndpointNotFoundError(`No Endpoint with id ${id}`);
       if (changes.url !== undefined) assertEndpointUrl(changes.url);
       const endpoint: EndpointRecord = {
         ...existing,
@@ -149,7 +150,8 @@ export function createSender(options: SenderOptions): Sender {
       const envelope: Event = {
         type,
         timestamp: acceptedAt.toISOString(),
-        data,
+        // JSON drops undefined, which would leave the envelope without `data`.
+        data: data === undefined ? null : data,
       };
       const body = JSON.stringify(envelope);
       const size = Buffer.byteLength(body);
@@ -167,7 +169,7 @@ export function createSender(options: SenderOptions): Sender {
           endpointId: endpoint.id,
           status: "pending",
           attemptCount: 0,
-          nextDueAt: acceptedAt,
+          nextAttemptAt: acceptedAt,
         }));
       store.insertEvent(event, deliveries);
       return event.id;
@@ -183,7 +185,7 @@ export function createSender(options: SenderOptions): Sender {
         eventId: delivery.eventId,
         endpointId: delivery.endpointId,
         status: delivery.status,
-        nextAttemptAt: delivery.nextDueAt,
+        nextAttemptAt: delivery.nextAttemptAt,
         attempts: delivery.attempts.map(
           ({ startedAt, durationMs, outcome }) => ({
             startedAt,
