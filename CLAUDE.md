@@ -4,6 +4,10 @@
 
 Tickets are built one per session, test-first, with a PR per ticket. See `docs/agents/workflow.md`.
 
+## Code layout
+
+Packages are deep modules: see [src/README.md](./src/README.md) before adding or importing one.
+
 ## Agent skills
 
 ### Issue tracker
