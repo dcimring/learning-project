@@ -1,4 +1,26 @@
-// The Sender's API arrives in ticket 02; for now the entry point exposes the
-// types it shares with the Receiver.
+export {
+  createSender,
+  type Attempt,
+  type Delivery,
+  type Endpoint,
+  type Sender,
+  type SenderOptions,
+} from "./lib/sender.js";
+export type {
+  AttemptOutcome,
+  AttemptRecord,
+  DeliveryRecord,
+  DeliveryStatus,
+  DeliveryWithAttempts,
+  DueDelivery,
+  EndpointRecord,
+  EventRecord,
+  Store,
+} from "./lib/store.js";
+export type {
+  Transport,
+  TransportRequest,
+  TransportResult,
+} from "./lib/transport.js";
 export type { Clock } from "../shared/clock.js";
 export type { Event } from "../shared/event.js";
