@@ -1,0 +1,36 @@
+{
+  "name": "webhook-delivery",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A lightweight webhook delivery engine: a Sender that signs and reliably delivers Events, and a Receiver kit that verifies and deduplicates them.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    "./sender": {
+      "source": "./src/sender/index.ts",
+      "types": "./dist/sender/index.d.ts",
+      "default": "./dist/sender/index.js"
+    },
+    "./receiver": {
+      "source": "./src/receiver/index.ts",
+      "types": "./dist/receiver/index.d.ts",
+      "default": "./dist/receiver/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

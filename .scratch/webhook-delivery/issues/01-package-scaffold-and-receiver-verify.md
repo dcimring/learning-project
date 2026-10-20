@@ -4,13 +4,13 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Package builds and exposes `sender` and `receiver` entry points; the test runner runs through the public entry points
-- [ ] The shared signing module is the only place the wire format is encoded (`webhook-id`, `webhook-timestamp`, `webhook-signature`; HMAC-SHA256 over `id.timestamp.body` with the decoded `whsec_` secret; `v1,<base64>` entries)
-- [ ] The Standard Webhooks published test vectors pass
-- [ ] `verify` accepts a list of Signing secrets and passes if any signature in the header matches any secret
-- [ ] Signatures are compared in constant time
-- [ ] A timestamp more than 5 minutes from the injected clock is rejected with a stale-timestamp error
-- [ ] Distinct typed errors for an invalid signature, a stale timestamp, and malformed or missing headers
-- [ ] `verify` returns the parsed Event envelope (`{ type, timestamp, data }`)
+- [x] Package builds and exposes `sender` and `receiver` entry points; the test runner runs through the public entry points
+- [x] The shared signing module is the only place the wire format is encoded (`webhook-id`, `webhook-timestamp`, `webhook-signature`; HMAC-SHA256 over `id.timestamp.body` with the decoded `whsec_` secret; `v1,<base64>` entries)
+- [x] The Standard Webhooks published test vectors pass
+- [x] `verify` accepts a list of Signing secrets and passes if any signature in the header matches any secret
+- [x] Signatures are compared in constant time
+- [x] A timestamp more than 5 minutes from the injected clock is rejected with a stale-timestamp error
+- [x] Distinct typed errors for an invalid signature, a stale timestamp, and malformed or missing headers
+- [x] `verify` returns the parsed Event envelope (`{ type, timestamp, data }`)
