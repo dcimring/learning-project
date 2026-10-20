@@ -20,7 +20,9 @@ const vector = {
   signature: "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE=",
 };
 
-const atSeconds = (seconds: number) => ({ now: () => new Date(seconds * 1000) });
+const atSeconds = (seconds: number) => ({
+  now: () => new Date(seconds * 1000),
+});
 
 function thrownBy(fn: () => unknown): unknown {
   try {
@@ -32,7 +34,12 @@ function thrownBy(fn: () => unknown): unknown {
 }
 
 /** Signs with node:crypto directly, independently of the package. */
-function signedHeaders(input: { id: string; timestamp: number; body: string; secret: string }) {
+function signedHeaders(input: {
+  id: string;
+  timestamp: number;
+  body: string;
+  secret: string;
+}) {
   const key = Buffer.from(input.secret.slice("whsec_".length), "base64");
   const signature = createHmac("sha256", key)
     .update(`${input.id}.${input.timestamp}.${input.body}`)
@@ -71,7 +78,7 @@ describe("verify: signatures", () => {
         rawBody: `{"test": 2432232315}`,
         secrets: [vector.secret],
         clock: atSeconds(vector.timestamp),
-      }),
+      })
     );
 
     expect(error).toBeInstanceOf(InvalidSignatureError);
@@ -83,7 +90,10 @@ describe("verify: signatures", () => {
     ["a garbage signature", "v1,dawfeoifkpqwoekfpqoekf"],
     ["a truncated signature", vector.signature.slice(0, 8)],
     ["an empty signature", "v1,"],
-    ["the right signature under an unknown version", vector.signature.replace("v1,", "v2,")],
+    [
+      "the right signature under an unknown version",
+      vector.signature.replace("v1,", "v2,"),
+    ],
   ])("rejects %s", (_, signature) => {
     const error = thrownBy(() =>
       verify({
@@ -91,7 +101,7 @@ describe("verify: signatures", () => {
         rawBody: vector.body,
         secrets: [vector.secret],
         clock: atSeconds(vector.timestamp),
-      }),
+      })
     );
 
     expect(error).toBeInstanceOf(InvalidSignatureError);
@@ -99,7 +109,8 @@ describe("verify: signatures", () => {
 
   it("passes when any signature in the header matches any Signing secret", () => {
     const otherSecret = "whsec_c2VjcmV0LW9mLWFub3RoZXItZW5kcG9pbnQ=";
-    const unrelatedSignature = "v1,Ceo5qEr07ixe2NLpvHk3FH9bwy/WavXrAFQ/9tdO6mc=";
+    const unrelatedSignature =
+      "v1,Ceo5qEr07ixe2NLpvHk3FH9bwy/WavXrAFQ/9tdO6mc=";
 
     const result = verify({
       headers: {
@@ -143,7 +154,9 @@ describe("verify: timestamp window", () => {
 });
 
 describe("verify: malformed headers", () => {
-  const verifyWithHeaders = (headers: Record<string, string | string[] | undefined>) =>
+  const verifyWithHeaders = (
+    headers: Record<string, string | string[] | undefined>
+  ) =>
     verify({
       headers,
       rawBody: vector.body,
@@ -154,27 +167,35 @@ describe("verify: malformed headers", () => {
   it.each(["webhook-id", "webhook-timestamp", "webhook-signature"])(
     "rejects a webhook missing %s",
     (name) => {
-      const error = thrownBy(() => verifyWithHeaders({ ...vectorHeaders(), [name]: undefined }));
+      const error = thrownBy(() =>
+        verifyWithHeaders({ ...vectorHeaders(), [name]: undefined })
+      );
 
       expect(error).toBeInstanceOf(MalformedHeadersError);
       expect(error).toBeInstanceOf(WebhookVerificationError);
-    },
+    }
   );
 
   it.each(["hello", "", "1614265330.5", "1e9", "01614265330"])(
     "rejects a webhook-timestamp of %j",
     (timestamp) => {
       const error = thrownBy(() =>
-        verifyWithHeaders({ ...vectorHeaders(), "webhook-timestamp": timestamp }),
+        verifyWithHeaders({
+          ...vectorHeaders(),
+          "webhook-timestamp": timestamp,
+        })
       );
 
       expect(error).toBeInstanceOf(MalformedHeadersError);
-    },
+    }
   );
 
   it("rejects a repeated webhook-id header", () => {
     const error = thrownBy(() =>
-      verifyWithHeaders({ ...vectorHeaders(), "webhook-id": [vector.id, vector.id] }),
+      verifyWithHeaders({
+        ...vectorHeaders(),
+        "webhook-id": [vector.id, vector.id],
+      })
     );
 
     expect(error).toBeInstanceOf(MalformedHeadersError);
@@ -231,7 +252,9 @@ describe("verify: the Event envelope", () => {
       timestamp: "2023-11-14T22:13:20.000Z",
       data: { invoiceId: "inv_42", amount: 1999 },
     });
-    expectTypeOf(event).toEqualTypeOf<Event<{ invoiceId: string; amount: number }>>();
+    expectTypeOf(event).toEqualTypeOf<
+      Event<{ invoiceId: string; amount: number }>
+    >();
   });
 
   it("rejects a correctly signed body that isn't JSON", () => {
@@ -240,11 +263,16 @@ describe("verify: the Event envelope", () => {
 
     const error = thrownBy(() =>
       verify({
-        headers: signedHeaders({ id: "evt_01JABCDEF", timestamp, body, secret: vector.secret }),
+        headers: signedHeaders({
+          id: "evt_01JABCDEF",
+          timestamp,
+          body,
+          secret: vector.secret,
+        }),
         rawBody: body,
         secrets: [vector.secret],
         clock: atSeconds(timestamp),
-      }),
+      })
     );
 
     expect(error).toBeInstanceOf(MalformedPayloadError);
@@ -265,7 +293,7 @@ describe("verify: Signing secret configuration", () => {
         rawBody: vector.body,
         secrets,
         clock: atSeconds(vector.timestamp),
-      }),
+      })
     );
 
     expect(error).toBeInstanceOf(TypeError);

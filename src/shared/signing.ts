@@ -33,13 +33,20 @@ export type SigningKey = Buffer & { readonly __brand: "SigningKey" };
  * Webhooks Senders issue it. Throws a TypeError if it isn't non-empty base64.
  */
 export function decodeSecret(secret: string): SigningKey {
-  const encoded = secret.startsWith(SECRET_PREFIX) ? secret.slice(SECRET_PREFIX.length) : secret;
+  const encoded = secret.startsWith(SECRET_PREFIX)
+    ? secret.slice(SECRET_PREFIX.length)
+    : secret;
   const key = Buffer.from(encoded, "base64");
   // Node's decoder skips characters it doesn't recognise, so a typo would
   // silently yield a different key; round-tripping catches that.
   const unpadded = (base64: string) => base64.replace(/=+$/, "");
-  if (key.length === 0 || unpadded(key.toString("base64")) !== unpadded(encoded)) {
-    throw new TypeError("Signing secrets must be base64, optionally prefixed with whsec_");
+  if (
+    key.length === 0 ||
+    unpadded(key.toString("base64")) !== unpadded(encoded)
+  ) {
+    throw new TypeError(
+      "Signing secrets must be base64, optionally prefixed with whsec_"
+    );
   }
   return key as SigningKey;
 }
@@ -52,13 +59,15 @@ export function decodeSecret(secret: string): SigningKey {
 export function signatureMatches(
   header: string,
   keys: readonly SigningKey[],
-  content: SignedContent,
+  content: SignedContent
 ): boolean {
   const candidates = parseSignatureHeader(header);
   return keys.some((key) => {
     const expected = hmac(key, content);
     return candidates.some(
-      (candidate) => candidate.length === expected.length && timingSafeEqual(candidate, expected),
+      (candidate) =>
+        candidate.length === expected.length &&
+        timingSafeEqual(candidate, expected)
     );
   });
 }
